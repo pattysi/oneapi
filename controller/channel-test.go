@@ -35,18 +35,25 @@ func testChannel(channel *model.Channel, request ChatRequest) (err error, openai
 	case common.ChannelTypeXunfei:
 		return errors.New("该渠道类型当前版本不支持测试，请手动测试"), nil
 	case common.ChannelTypeAzure:
-		request.Model = "gpt-35-turbo"
 		defer func() {
 			if err != nil {
-				err = errors.New("请确保已在 Azure 上创建了 gpt-35-turbo 模型，并且 apiVersion 已正确填写！")
+				err = errors.New("请确保已在 Azure 上创建了 gpt-35-turbo 模型，或正确配置模型映射，并且 apiVersion 已正确填写！")
 			}
 		}()
+		fallthrough
 	default:
 		request.Model = "gpt-3.5-turbo"
 	}
 	requestURL := common.ChannelBaseURLs[channel.Type]
 	if channel.Type == common.ChannelTypeAzure {
-		requestURL = getFullRequestURL(channel.GetBaseURL(), fmt.Sprintf("/openai/deployments/%s/chat/completions?api-version=2023-03-15-preview", request.Model), channel.Type)
+		modelMap := channel.GetModelMapping()
+		var deployment string
+		if modelMap[request.Model] != "" {
+			deployment = modelMap[request.Model]
+		} else {
+			deployment = model.ModelToDeployment(request.Model)
+		}
+		requestURL = getFullRequestURL(channel.GetBaseURL(), fmt.Sprintf("/openai/deployments/%s/chat/completions?api-version=%s", deployment, channel.Other), channel.Type)
 	} else {
 		if baseURL := channel.GetBaseURL(); len(baseURL) > 0 {
 			requestURL = baseURL
@@ -126,6 +133,9 @@ func TestChannel(c *gin.Context) {
 	err, _ = testChannel(channel, *testRequest)
 	tok := time.Now()
 	milliseconds := tok.Sub(tik).Milliseconds()
+	if err != nil {
+		milliseconds = 0
+	}
 	go channel.UpdateResponseTime(milliseconds)
 	consumedTime := float64(milliseconds) / 1000.0
 	if err != nil {

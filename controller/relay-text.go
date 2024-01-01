@@ -91,18 +91,12 @@ func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 		}
 	}
 	// map model name
-	modelMapping := c.GetString("model_mapping")
+	modelMapping := c.GetStringMapString("model_mapping")
 	isModelMapped := false
-	if modelMapping != "" && modelMapping != "{}" {
-		modelMap := make(map[string]string)
-		err := json.Unmarshal([]byte(modelMapping), &modelMap)
-		if err != nil {
-			return errorWrapper(err, "unmarshal_model_mapping_failed", http.StatusInternalServerError)
-		}
-		if modelMap[textRequest.Model] != "" {
-			textRequest.Model = modelMap[textRequest.Model]
-			isModelMapped = true
-		}
+	originalModel := textRequest.Model
+	if modelMapping[textRequest.Model] != "" {
+		textRequest.Model = modelMapping[textRequest.Model]
+		isModelMapped = true
 	}
 	apiType := APITypeOpenAI
 	switch channelType {
@@ -140,14 +134,15 @@ func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 			requestURL = fmt.Sprintf("%s?api-version=%s", requestURL, apiVersion)
 			baseURL = c.GetString("base_url")
 			task := strings.TrimPrefix(requestURL, "/v1/")
-			model_ := textRequest.Model
-			model_ = strings.Replace(model_, ".", "", -1)
-			// https://github.com/songquanpeng/one-api/issues/67
-			model_ = strings.TrimSuffix(model_, "-0301")
-			model_ = strings.TrimSuffix(model_, "-0314")
-			model_ = strings.TrimSuffix(model_, "-0613")
 
-			requestURL = fmt.Sprintf("/openai/deployments/%s/%s", model_, task)
+			var deployment string
+			if isModelMapped {
+				deployment = textRequest.Model
+				textRequest.Model = originalModel
+			} else {
+				deployment = model.ModelToDeployment(textRequest.Model)
+			}
+			requestURL = fmt.Sprintf("/openai/deployments/%s/%s", deployment, task)
 			fullRequestURL = getFullRequestURL(baseURL, requestURL, channelType)
 		}
 	case APITypeClaude:

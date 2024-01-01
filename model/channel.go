@@ -1,8 +1,11 @@
 package model
 
 import (
-	"gorm.io/gorm"
+	"encoding/json"
 	"one-api/common"
+	"strings"
+
+	"gorm.io/gorm"
 )
 
 type Channel struct {
@@ -72,6 +75,15 @@ func BatchInsertChannels(channels []Channel) error {
 	return nil
 }
 
+func ModelToDeployment(model string) string {
+	model = strings.Replace(model, ".", "", -1)
+	// https://github.com/songquanpeng/one-api/issues/67
+	model = strings.TrimSuffix(model, "-0301")
+	model = strings.TrimSuffix(model, "-0314")
+	model = strings.TrimSuffix(model, "-0613")
+	return model
+}
+
 func (channel *Channel) GetPriority() int64 {
 	if channel.Priority == nil {
 		return 0
@@ -86,11 +98,15 @@ func (channel *Channel) GetBaseURL() string {
 	return *channel.BaseURL
 }
 
-func (channel *Channel) GetModelMapping() string {
-	if channel.ModelMapping == nil {
-		return ""
+func (channel *Channel) GetModelMapping() (m map[string]string) {
+	if channel.ModelMapping == nil || *channel.ModelMapping == "" {
+		return
 	}
-	return *channel.ModelMapping
+	err := json.Unmarshal([]byte(*channel.ModelMapping), &m)
+	if err != nil {
+		common.SysError("failed to unmarshal model mapping: " + err.Error())
+	}
+	return
 }
 
 func (channel *Channel) Insert() error {

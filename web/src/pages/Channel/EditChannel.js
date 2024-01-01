@@ -7,7 +7,8 @@ import { CHANNEL_OPTIONS } from '../../constants';
 const MODEL_MAPPING_EXAMPLE = {
   'gpt-3.5-turbo-0301': 'gpt-3.5-turbo',
   'gpt-4-0314': 'gpt-4',
-  'gpt-4-32k-0314': 'gpt-4-32k'
+  'gpt-4-32k-0314': 'gpt-4-32k',
+  'gpt-4': 'azure-deployment-1',
 };
 
 function type2secretPrompt(type) {
@@ -43,6 +44,7 @@ const EditChannel = () => {
     base_url: '',
     other: '',
     model_mapping: '',
+    deployment_mapping: '',
     models: [],
     groups: ['default']
   };
@@ -412,7 +414,7 @@ const EditChannel = () => {
           <Form.Field>
             <Form.TextArea
               label='模型重定向'
-              placeholder={`此项可选，用于修改请求体中的模型名称，为一个 JSON 字符串，键为请求中模型名称，值为要替换的模型名称，例如：\n${JSON.stringify(MODEL_MAPPING_EXAMPLE, null, 2)}`}
+              placeholder={`此项可选，用于修改请求体中的模型名称，为一个 JSON 字符串，键为请求中模型名称，值为要替换的模型名称，如果是 Azure OpenAI 则替换为 deployment 名称，例如：\n${JSON.stringify(MODEL_MAPPING_EXAMPLE, null, 2)}`}
               name='model_mapping'
               onChange={handleInputChange}
               value={inputs.model_mapping}
